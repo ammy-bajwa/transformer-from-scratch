@@ -91,3 +91,39 @@ class FeedForward(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
+
+class TransformerBlock(nn.Module):
+    """One Transformer block: LayerNorm → Attention (+residual) → LayerNorm → FFN (+residual).
+
+    Chef analogy: One "cooking station" on the assembly line.
+      1. Normalize flavors (LayerNorm)
+      2. Chefs huddle — share context across all tokens (MultiHeadAttention)
+      3. Add back original flavors (residual: "don't lose what we had")
+      4. Normalize again
+      5. Each ingredient refined alone (FeedForward)
+      6. Add back what we had after step 3 (residual)
+
+    Stack 6 of these in a row and you get GPT.
+    """
+
+    def __init__(self, embed_dim, num_heads, dropout=0.1):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(embed_dim)
+        self.attn = MultiHeadAttention(embed_dim, num_heads, dropout)
+        self.ln2 = nn.LayerNorm(embed_dim)
+        self.ffn = FeedForward(embed_dim, dropout=dropout)
+
+    def forward(self, x, mask=None, return_attention=False):
+        # Attention sub-block: normalize → attend → residual
+        attn_out = self.attn(self.ln1(x), mask, return_attention)
+        if return_attention:
+            attn_out, attn_weights = attn_out
+        x = x + attn_out
+
+        # FFN sub-block: normalize → process → residual
+        x = x + self.ffn(self.ln2(x))
+
+        if return_attention:
+            return x, attn_weights
+        return x
