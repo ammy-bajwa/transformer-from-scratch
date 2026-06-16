@@ -65,3 +65,29 @@ class MultiHeadAttention(nn.Module):
         if return_attention:
             return out, attn_weights
         return out
+
+
+class FeedForward(nn.Module):
+    """Standard MLP: Linear → GELU → Dropout → Linear → Dropout.
+
+    Chef analogy: After all chefs share findings (attention), each ingredient
+    gets individually refined through this station. Expands 4x (think: "let's
+    explore more possibilities") then squeezes back ("keep only what matters").
+
+    GELU is smoother than ReLU — it lets small negative values through slightly,
+    which helps gradients flow better.
+    """
+
+    def __init__(self, embed_dim, expansion_factor=4, dropout=0.1):
+        super().__init__()
+        hidden_dim = embed_dim * expansion_factor
+        self.net = nn.Sequential(
+            nn.Linear(embed_dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, embed_dim),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x):
+        return self.net(x)
